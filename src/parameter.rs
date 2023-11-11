@@ -11,10 +11,10 @@ pub struct Parameters {
 }
 
 impl Parameters {
-    pub fn new() -> Parameters {
+    pub fn new(screen_columns: u16, screen_rows: u16) -> Parameters {
         Parameters {
-            screen_columns: 104,
-            screen_rows: 212,
+            screen_columns,
+            screen_rows,
             screen_margin: 5,
             bme680_controller_loop_delay_ms: 500,
             screen_controller_loop_delay_ms: 50,

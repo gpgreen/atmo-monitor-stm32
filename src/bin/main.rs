@@ -8,25 +8,31 @@ use atmo_monitor_stm32::{
     parameter::Parameters,
     screen::{DisplayInfo, Screen},
 };
-use core::fmt::Write;
 use defmt::{debug, info, unwrap};
 use embassy_executor::Spawner;
 use embassy_stm32::{
-    bind_interrupts, dma::NoDma, gpio::*, i2c, peripherals, spi, time::Hertz, usart,
+    bind_interrupts, dma::NoDma, gpio::*, i2c, peripherals, rcc::AdcClockSource, spi, time::Hertz,
+    usart,
 };
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_time::{Duration, Instant, Timer};
-use heapless::String;
-use il0373::{
-    Builder, Dimensions, Display, Rotation, SpiSramBus, SramDisplayInterface, SramGraphicDisplay,
-};
+use il0373::{Builder, Dimensions, Display, GraphicDisplay, Interface, Rotation};
 use static_cell::StaticCell;
 
 use defmt_rtt as _; // global logger
 
 /// Display controller channel
 static CHANNEL: StaticCell<Channel<NoopRawMutex, DisplayInfo, 2>> = StaticCell::new();
+
+// constants related to display size
+const COLS: u16 = 104;
+const ROWS: u16 = 212;
+const DISPLAY_BUFSIZE: usize = (ROWS * COLS / 8) as usize;
+
+// display buffer
+static mut BLACK_BUFFER: [u8; DISPLAY_BUFSIZE] = [0; DISPLAY_BUFSIZE];
+static mut RED_BUFFER: [u8; DISPLAY_BUFSIZE] = [0; DISPLAY_BUFSIZE];
 
 // connect the I2C1 interrupt
 bind_interrupts!(struct Irqs {
@@ -44,17 +50,23 @@ async fn main(spawner: Spawner) {
     //defmt::warn!("warn");
     //defmt::error!("error");
 
-    let p = embassy_stm32::init(Default::default());
+    let mut config = embassy_stm32::Config::default();
+    config.rcc.sysclk = Some(Hertz(72_000_000));
+    config.rcc.hclk = Some(Hertz(72_000_000));
+    config.rcc.pclk1 = Some(Hertz(32_000_000));
+    config.rcc.pclk2 = Some(Hertz(64_000_000));
+    config.rcc.adc = Some(AdcClockSource::PllDiv1);
+    let p = embassy_stm32::init(config);
 
     // create the parameters
-    let parameters = Parameters::new();
+    let parameters = Parameters::new(COLS, ROWS);
     info!("parameters: {}", parameters);
 
     // dc - PC7, rst - PA9, busy - PA8,
     // sck - PA5, mosi - PA7, miso - PA6
     // epd_cs - PB6, sram_cs - PB10, sdmmc_cs - PB5,
     let display_cs = Output::new(p.PB6, Level::High, Speed::Low);
-    let sram_cs = Output::new(p.PB10, Level::High, Speed::Low);
+    //let sram_cs = Output::new(p.PB10, Level::High, Speed::Low);
     //let sdmmc_cs = Output::new(p.PB5, Level::High, Speed::Low);
     let display_dc = Output::new(p.PC7, Level::High, Speed::Low);
     let display_rst = Output::new(p.PA9, Level::High, Speed::Low);
@@ -93,15 +105,16 @@ async fn main(spawner: Spawner) {
     );
     let bme_dev = BmeDevice::new(i2c);
 
+    // spi
+    let mut spi_config = spi::Config::default();
+    spi_config.frequency = Hertz(8_000_000);
+    let spi = spi::Spi::new(
+        p.SPI1, p.PA5, p.PA7, p.PA6, p.DMA1_CH3, p.DMA1_CH2, spi_config,
+    );
+
     // Initialize Display
     info!("Initializing Display...");
-    let mut config = spi::Config::default();
-    config.frequency = Hertz(1_000_000);
-    let spi_bus = SpiSramBus::new(
-        spi::Spi::new(p.SPI1, p.PA5, p.PA7, p.PA6, p.DMA1_CH3, p.DMA1_CH2, config),
-        (display_cs, sram_cs),
-    );
-    let config = Builder::new()
+    let display_config = Builder::new()
         .dimensions(Dimensions {
             rows: parameters.screen_rows,
             cols: parameters.screen_columns as u8,
@@ -110,10 +123,14 @@ async fn main(spawner: Spawner) {
         .build()
         .unwrap();
     let screen = Screen::new(
-        SramGraphicDisplay::new(Display::new(
-            SramDisplayInterface::new(spi_bus, (display_busy, display_dc, display_rst)),
-            config,
-        )),
+        GraphicDisplay::new(
+            Display::new(
+                Interface::new(spi, (display_cs, display_busy, display_dc, display_rst)),
+                display_config,
+            ),
+            unsafe { &mut BLACK_BUFFER },
+            unsafe { &mut RED_BUFFER },
+        ),
         parameters.screen_columns,
         parameters.screen_rows,
         5,

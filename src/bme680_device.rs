@@ -2,7 +2,7 @@
 
 use bme680::{Bme680, I2CAddress, IIRFilterSize, OversamplingSetting, PowerMode, SettingsBuilder};
 use core::fmt;
-use defmt::*;
+use defmt::debug;
 use embassy_time::{Delay, Duration};
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c::{Read, Write};

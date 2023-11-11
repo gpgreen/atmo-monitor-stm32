@@ -7,7 +7,7 @@ use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::*;
 use embedded_graphics::text::Text;
 use heapless::String;
-use il0373::{Color, SramDisplayInterface, SramGraphicDisplay};
+use il0373::{Color, GraphicDisplay, Interface};
 use micromath::F32Ext;
 use profont::{PROFONT_10_POINT, PROFONT_12_POINT};
 
@@ -20,17 +20,16 @@ pub enum DisplayInfo {
 }
 
 /// type of the SramDisplayInterface for this app
-type STMInterface<'a> = SramDisplayInterface<
+type STMInterface<'a> = Interface<
     Spi<'a, peripherals::SPI1, peripherals::DMA1_CH3, peripherals::DMA1_CH2>,
     Output<'a, peripherals::PB6>,
-    Output<'a, peripherals::PB10>,
     Input<'a, peripherals::PA8>,
     Output<'a, peripherals::PC7>,
     Output<'a, peripherals::PA9>,
 >;
 
 /// type of the SramGraphicDisplay for this app
-type STMDisplay<'a> = SramGraphicDisplay<STMInterface<'a>>;
+type STMDisplay<'a> = GraphicDisplay<'a, STMInterface<'a>>;
 
 /// Structure to represent an eInk display attached to the SPI bus
 pub struct Screen {
