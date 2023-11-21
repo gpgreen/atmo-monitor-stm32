@@ -2,13 +2,13 @@
 
 use bme680::{Bme680, I2CAddress, IIRFilterSize, OversamplingSetting, PowerMode, SettingsBuilder};
 use core::fmt;
-use defmt::debug;
+use defmt::{debug, Format};
 use embassy_time::{Delay, Duration};
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c::{Read, Write};
 
 /// Data sensed by the BME680 device
-#[derive(Debug, Default, defmt::Format)]
+#[derive(Debug, Default, Clone, Copy, Format)]
 pub struct Bme680Data {
     pub temperature: f32,
     pub humidity: f32,

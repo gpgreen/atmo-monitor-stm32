@@ -3,6 +3,7 @@
 #![feature(type_alias_impl_trait)]
 
 use cortex_m_semihosting::debug;
+use defmt::Format;
 
 use defmt_rtt as _; // global logger
 
@@ -14,7 +15,17 @@ use panic_probe as _;
 // library modules
 pub mod bme680_device;
 pub mod parameter;
+pub mod pms7003_device;
 pub mod screen;
+
+/// Enumeration passed on channel to display controller
+#[derive(Debug, Format)]
+pub enum DisplayInfo {
+    Bme680Data(bme680_device::Bme680Data),
+    Pms7003Data(pms7003_device::PmSensorData),
+    Show,
+    Hide,
+}
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message
 // this prevents the panic message being printed *twice* when `defmt::panic` is invoked

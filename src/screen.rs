@@ -1,6 +1,6 @@
-use crate::bme680_device::Bme680Data;
+use crate::{bme680_device::Bme680Data, pms7003_device::PmSensorData};
 use core::fmt::Write;
-use defmt::{debug, Format};
+use defmt::debug;
 use embassy_stm32::{gpio::*, peripherals, spi::Spi};
 use embassy_time::Delay;
 use embedded_graphics::mono_font::MonoTextStyle;
@@ -11,21 +11,13 @@ use il0373::{Color, GraphicDisplay, Interface};
 use micromath::F32Ext;
 use profont::{PROFONT_10_POINT, PROFONT_12_POINT};
 
-/// Enumeration passed on channel to display controller
-#[derive(Debug, Format)]
-pub enum DisplayInfo {
-    Bme680Data(Bme680Data),
-    Show,
-    Hide,
-}
-
 /// type of the SramDisplayInterface for this app
 type STMInterface<'a> = Interface<
     Spi<'a, peripherals::SPI1, peripherals::DMA1_CH3, peripherals::DMA1_CH2>,
     Output<'a, peripherals::PB6>,
-    Input<'a, peripherals::PA8>,
+    Input<'a, peripherals::PB5>,
     Output<'a, peripherals::PC7>,
-    Output<'a, peripherals::PA9>,
+    Output<'a, peripherals::PB4>,
 >;
 
 /// type of the SramGraphicDisplay for this app
@@ -62,13 +54,13 @@ impl Screen {
     }
 
     /// Turn on display
-    pub fn turn_on(&mut self, sensor_data: &Bme680Data) {
+    pub fn turn_on(&mut self, sensor_data: &Bme680Data, sensor_pmdata: &PmSensorData) {
         debug!("Turn on display");
-        self.update(sensor_data);
+        self.update(sensor_data, sensor_pmdata);
     }
 
     /// Update data on the display
-    pub fn update(&mut self, sensor_data: &Bme680Data) {
+    pub fn update(&mut self, sensor_data: &Bme680Data, sensor_pmdata: &PmSensorData) {
         debug!("display update");
 
         let mut delay = Delay;
@@ -122,16 +114,25 @@ impl Screen {
         .unwrap();
         buf.clear();
         let style = if sensor_data.gas_valid && sensor_data.heat_stable {
-            write!(&mut buf, "Gas Resist: {}ohms", sensor_data.gas_resistance).unwrap();
+            write!(&mut buf, "Gas: {}ohms", sensor_data.gas_resistance).unwrap();
             char_blk_style
         } else {
-            write!(&mut buf, "Gas reading invalid").unwrap();
+            write!(&mut buf, "Gas invalid").unwrap();
             char_rd_style
         };
         Text::new(
             buf.as_str(),
             Point::new(x_start, y_start + 14 + 14 + 14 + 14),
             style,
+        )
+        .draw(&mut self.hdwr)
+        .unwrap();
+        buf.clear();
+        write!(&mut buf, "PM2.5: {}", sensor_pmdata.pm2_5).unwrap();
+        Text::new(
+            buf.as_str(),
+            Point::new(x_start + 75, y_start + 14 + 14 + 14 + 40),
+            lg_char_rd_style,
         )
         .draw(&mut self.hdwr)
         .unwrap();
