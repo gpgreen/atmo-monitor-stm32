@@ -30,7 +30,7 @@ embedded-graphics = "0.8"
 profont = "0.7"
 heapless = "0.7"
 bme680 = "0.6.0"
-pms-7003 = { version = "0.3.0", path = "../pms-7003", features = ["async"] }
+pms-7003 = { git = "https://github.com/gpgreen/pms-7003", branch = "master", features = ["async"] }
 static_cell = { version = "1.1", features = ["nightly"] }
 embedded-hal = { version = "0.2.7", features = ["unproven"] }
 embedded-io = "0.6.1"
