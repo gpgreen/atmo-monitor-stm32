@@ -23,8 +23,6 @@ pub mod screen;
 pub enum DisplayInfo {
     Bme680Data(bme680_device::Bme680Data),
     Pms7003Data(pms7003_device::PmSensorData),
-    Show,
-    Hide,
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message

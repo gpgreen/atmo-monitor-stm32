@@ -48,15 +48,14 @@ impl Screen {
     }
 
     /// Turn off the display
-    pub fn shutoff(&mut self) {
-        debug!("Turn off display");
+    pub fn power_off(&mut self) {
+        debug!("Power off display");
         //self.hdwr.clear(Color::White).ok();
     }
 
     /// Turn on display
-    pub fn turn_on(&mut self, sensor_data: &Bme680Data, sensor_pmdata: &PmSensorData) {
-        debug!("Turn on display");
-        self.update(sensor_data, sensor_pmdata);
+    pub fn power_on(&mut self) {
+        debug!("Power on display");
     }
 
     /// Update data on the display

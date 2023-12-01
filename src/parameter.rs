@@ -5,9 +5,10 @@ pub struct Parameters {
     pub screen_columns: u16,
     pub screen_rows: u16,
     pub screen_margin: u16,
-    pub bme680_controller_loop_delay_ms: u32,
-    pub screen_controller_loop_delay_ms: u32,
+    pub bme680_first_data_delay_ms: u32,
+    pub screen_controller_timeout_sec: u32,
     pub screen_display_min_refresh_sec: u32,
+    pub pm25_data_delay_ms: u32,
 }
 
 impl Parameters {
@@ -16,9 +17,10 @@ impl Parameters {
             screen_columns,
             screen_rows,
             screen_margin: 5,
-            bme680_controller_loop_delay_ms: 500,
-            screen_controller_loop_delay_ms: 50,
+            bme680_first_data_delay_ms: 100,
+            screen_controller_timeout_sec: 20,
             screen_display_min_refresh_sec: 180,
+            pm25_data_delay_ms: 250,
         }
     }
 }
