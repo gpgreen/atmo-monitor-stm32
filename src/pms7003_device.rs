@@ -2,7 +2,10 @@
 
 use crate::{parameter::Parameters, DisplayInfo};
 use defmt::{debug, error, info, Format};
-use embassy_stm32::{peripherals, usart};
+use embassy_stm32::{
+    gpio::{AnyPin, Output},
+    peripherals, usart,
+};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::Sender;
 use embassy_sync::signal::Signal;
@@ -73,6 +76,8 @@ impl PmSensorData {
 #[embassy_executor::task]
 pub async fn pm25_controller(
     mut dev: Pms7003SensorAsync<usart::BufferedUart<'static, peripherals::USART1>>,
+    mut reset_pin: Output<'static, AnyPin>,
+    _set_pin: Output<'static, AnyPin>,
     sender: Sender<'static, NoopRawMutex, DisplayInfo, 2>,
     params: Parameters,
 ) {
@@ -82,6 +87,10 @@ pub async fn pm25_controller(
         match PM25_SIGNAL.wait().await {
             PmCommand::On => {
                 info!("Start collecting pm2.5");
+                reset_pin.set_low();
+                Timer::after(Duration::from_millis(200)).await;
+                reset_pin.set_high();
+                Timer::after(Duration::from_millis(200)).await;
                 if let Err(_e) = dev.wake().await {
                     error!("Unable to command pm25 to wake");
                 }

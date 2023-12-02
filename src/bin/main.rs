@@ -81,7 +81,7 @@ async fn main(spawner: Spawner) {
     let display_dc = Output::new(p.PC7, Level::High, Speed::Low);
     let display_rst = Output::new(p.PB4, Level::High, Speed::Low);
     let display_busy = Input::new(p.PB5, Pull::None);
-    let _display_ena = Output::new(p.PB3, Level::High, Speed::Low);
+    let display_ena = Output::new(p.PB3, Level::High, Speed::Low);
 
     // usart1 rx = PA9, tx = PA10
     info!("Initializing particulate sensor...");
@@ -92,8 +92,8 @@ async fn main(spawner: Spawner) {
     let usart =
         usart::BufferedUart::new(p.USART1, Irqs, p.PA10, p.PA9, tx_buf, rx_buf, usart_config);
     let pm25dev = Pms7003SensorAsync::new(usart);
-    let _pm_set = Output::new(p.PA2, Level::High, Speed::Low);
-    let _pm_reset = Output::new(p.PA3, Level::High, Speed::Low);
+    let pm_set = Output::new(p.PA2, Level::High, Speed::Low);
+    let pm_reset = Output::new(p.PA3, Level::High, Speed::Low);
 
     info!("Initializing bme680 sensor...");
     // initialize i2c
@@ -154,11 +154,14 @@ async fn main(spawner: Spawner) {
     )));
     unwrap!(spawner.spawn(display_controller(
         screen,
+        display_ena.degrade(),
         dspctrl_channel.receiver(),
         parameters,
     )));
     unwrap!(spawner.spawn(pms7003_device::pm25_controller(
         pm25dev,
+        pm_reset.degrade(),
+        pm_set.degrade(),
         dspctrl_channel.sender(),
         parameters,
     )));
@@ -198,12 +201,14 @@ async fn bme680_controller(
 #[embassy_executor::task]
 async fn display_controller(
     mut screen: Screen,
+    mut ena_pin: Output<'static, AnyPin>,
     receiver: Receiver<'static, NoopRawMutex, DisplayInfo, 2>,
     params: Parameters,
 ) {
     let mut current_data = None;
     let mut current_pmdata = None;
     loop {
+        ena_pin.set_high();
         PM25_SIGNAL.signal(PmCommand::On);
         BME_SIGNAL.signal(BmeCommand::On);
         loop {
@@ -240,10 +245,12 @@ async fn display_controller(
                 break;
             }
         }
+        Timer::after(Duration::from_secs(20)).await;
+        ena_pin.set_low();
         current_data = None;
         current_pmdata = None;
         Timer::after(Duration::from_secs(
-            params.screen_display_min_refresh_sec.into(),
+            (params.screen_display_min_refresh_sec - 20).into(),
         ))
         .await;
     }

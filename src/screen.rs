@@ -9,7 +9,7 @@ use embedded_graphics::text::Text;
 use heapless::String;
 use il0373::{Color, GraphicDisplay, Interface};
 use micromath::F32Ext;
-use profont::{PROFONT_10_POINT, PROFONT_12_POINT};
+use profont::{PROFONT_10_POINT, PROFONT_12_POINT, PROFONT_24_POINT};
 
 /// type of the SramDisplayInterface for this app
 type STMInterface<'a> = Interface<
@@ -71,7 +71,8 @@ impl Screen {
         // Choose text style 10point at 6x12 pixels
         let char_blk_style = MonoTextStyle::new(&PROFONT_10_POINT, Color::Black);
         let char_rd_style = MonoTextStyle::new(&PROFONT_10_POINT, Color::Red);
-        let lg_char_rd_style = MonoTextStyle::new(&PROFONT_12_POINT, Color::Red);
+        let med_char_rd_style = MonoTextStyle::new(&PROFONT_12_POINT, Color::Red);
+        let lg_char_blk_style = MonoTextStyle::new(&PROFONT_24_POINT, Color::Black);
 
         let x_start: i32 = self.margin.into();
         let y_start: i32 = self.margin as i32 + 10;
@@ -79,7 +80,7 @@ impl Screen {
         Text::new(
             "Atmo Monitor v0.1.0",
             Point::new(x_start + 30, y_start),
-            lg_char_rd_style,
+            med_char_rd_style,
         )
         .draw(&mut self.hdwr)
         .unwrap();
@@ -127,15 +128,35 @@ impl Screen {
         .draw(&mut self.hdwr)
         .unwrap();
         buf.clear();
-        write!(&mut buf, "PM2.5: {}", sensor_pmdata.pm2_5).unwrap();
+        let mut x = self.display_height - self.margin;
+        let y = self.display_width - self.margin - 10;
+        let char_width = if sensor_pmdata.pm2_5_atm < 10 {
+            1
+        } else if sensor_pmdata.pm2_5_atm < 100 {
+            2
+        } else if sensor_pmdata.pm2_5_atm < 1000 {
+            3
+        } else {
+            4
+        };
+        x -= 16 * char_width;
+        write!(&mut buf, "{}", sensor_pmdata.pm2_5_atm).unwrap();
         Text::new(
             buf.as_str(),
-            Point::new(x_start + 75, y_start + 14 + 14 + 14 + 40),
-            lg_char_rd_style,
+            Point::new(x.into(), y.into()),
+            lg_char_blk_style,
         )
         .draw(&mut self.hdwr)
         .unwrap();
         buf.clear();
+        write!(&mut buf, "PM2.5").unwrap();
+        Text::new(
+            buf.as_str(),
+            Point::new(x.into(), (y - 30).into()),
+            char_blk_style,
+        )
+        .draw(&mut self.hdwr)
+        .unwrap();
         self.hdwr.update().ok();
         self.hdwr.deep_sleep().ok();
     }
