@@ -205,13 +205,14 @@ async fn display_controller(
     receiver: Receiver<'static, NoopRawMutex, DisplayInfo, 2>,
     params: Parameters,
 ) {
-    let mut current_data = None;
-    let mut current_pmdata = None;
     loop {
         ena_pin.set_high();
         PM25_SIGNAL.signal(PmCommand::On);
         BME_SIGNAL.signal(BmeCommand::On);
+        let mut current_data = None;
+        let mut current_pmdata = None;
         loop {
+            debug!("Start sensor data cycle");
             match select::select(
                 receiver.receive(),
                 Timer::after(Duration::from_secs(
@@ -235,7 +236,6 @@ async fn display_controller(
                 }
                 Either::Second(_) => {
                     error!("Timeout waiting for sensors");
-                    break;
                 }
             }
             if let (Some(d), Some(pd)) = (current_data, current_pmdata) {
@@ -245,12 +245,16 @@ async fn display_controller(
                 break;
             }
         }
-        Timer::after(Duration::from_secs(20)).await;
-        ena_pin.set_low();
-        current_data = None;
-        current_pmdata = None;
+        debug!("Exit sensor data cycle");
         Timer::after(Duration::from_secs(
-            (params.screen_display_min_refresh_sec - 20).into(),
+            params.screen_enable_shutdown_delay_sec.into(),
+        ))
+        .await;
+        ena_pin.set_low();
+        debug!("sleep cycle");
+        Timer::after(Duration::from_secs(
+            (params.screen_display_min_refresh_sec - params.screen_enable_shutdown_delay_sec)
+                .into(),
         ))
         .await;
     }

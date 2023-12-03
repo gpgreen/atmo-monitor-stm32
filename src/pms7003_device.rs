@@ -76,7 +76,7 @@ impl PmSensorData {
 #[embassy_executor::task]
 pub async fn pm25_controller(
     mut dev: Pms7003SensorAsync<usart::BufferedUart<'static, peripherals::USART1>>,
-    mut reset_pin: Output<'static, AnyPin>,
+    _reset_pin: Output<'static, AnyPin>,
     _set_pin: Output<'static, AnyPin>,
     sender: Sender<'static, NoopRawMutex, DisplayInfo, 2>,
     params: Parameters,
@@ -87,21 +87,11 @@ pub async fn pm25_controller(
         match PM25_SIGNAL.wait().await {
             PmCommand::On => {
                 info!("Start collecting pm2.5");
-                reset_pin.set_low();
-                Timer::after(Duration::from_millis(200)).await;
-                reset_pin.set_high();
-                Timer::after(Duration::from_millis(200)).await;
-                if let Err(_e) = dev.wake().await {
-                    error!("Unable to command pm25 to wake");
-                }
                 let avg = pm25_get_data(&mut dev, &params).await;
                 sender.send(DisplayInfo::Pms7003Data(avg)).await;
             }
             PmCommand::Off => {
                 info!("Stop collecting pm2.5");
-                if let Err(_e) = dev.sleep().await {
-                    error!("Unable to command pm25 to sleep");
-                }
             }
         }
     }
@@ -111,7 +101,7 @@ async fn pm25_get_data(
     dev: &mut Pms7003SensorAsync<usart::BufferedUart<'static, peripherals::USART1>>,
     params: &Parameters,
 ) -> PmSensorData {
-    info!("starting pm2.5 loop");
+    debug!("pm2.5 get data loop");
     let mut data = [PmSensorData::default(); 5];
     let mut offset = 0;
     loop {

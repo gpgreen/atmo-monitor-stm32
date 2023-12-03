@@ -86,7 +86,7 @@ impl Screen {
         .unwrap();
 
         let mut buf: String<32> = String::new();
-        write!(&mut buf, "Temp: {}\u{B0}C", sensor_data.temperature.trunc()).unwrap();
+        write!(&mut buf, "Humidity: {}\u{25}", sensor_data.humidity.trunc()).unwrap();
         Text::new(
             buf.as_str(),
             Point::new(x_start, y_start + 14),
@@ -95,19 +95,10 @@ impl Screen {
         .draw(&mut self.hdwr)
         .unwrap();
         buf.clear();
-        write!(&mut buf, "Humidity: {}\u{25}", sensor_data.humidity.trunc()).unwrap();
-        Text::new(
-            buf.as_str(),
-            Point::new(x_start, y_start + 14 + 14),
-            char_blk_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
-        buf.clear();
         write!(&mut buf, "Pressure: {}hPa", sensor_data.pressure.trunc()).unwrap();
         Text::new(
             buf.as_str(),
-            Point::new(x_start, y_start + 14 + 14 + 14),
+            Point::new(x_start, y_start + 14 + 14),
             char_blk_style,
         )
         .draw(&mut self.hdwr)
@@ -122,13 +113,13 @@ impl Screen {
         };
         Text::new(
             buf.as_str(),
-            Point::new(x_start, y_start + 14 + 14 + 14 + 14),
+            Point::new(x_start, y_start + 14 + 14 + 14),
             style,
         )
         .draw(&mut self.hdwr)
         .unwrap();
         buf.clear();
-        let mut x = self.display_height - self.margin;
+        let mut x = self.display_height - self.margin - 10;
         let y = self.display_width - self.margin - 10;
         let char_width = if sensor_pmdata.pm2_5_atm < 10 {
             1
@@ -152,8 +143,17 @@ impl Screen {
         write!(&mut buf, "PM2.5").unwrap();
         Text::new(
             buf.as_str(),
-            Point::new(x.into(), (y - 30).into()),
+            Point::new(x.into(), (y - 28).into()),
             char_blk_style,
+        )
+        .draw(&mut self.hdwr)
+        .unwrap();
+        buf.clear();
+        write!(&mut buf, "{}\u{B0}C", sensor_data.temperature.trunc()).unwrap();
+        Text::new(
+            buf.as_str(),
+            Point::new(x_start + 10, y.into()),
+            lg_char_blk_style,
         )
         .draw(&mut self.hdwr)
         .unwrap();
