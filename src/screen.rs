@@ -95,7 +95,7 @@ impl Screen {
         .draw(&mut self.hdwr)
         .unwrap();
         buf.clear();
-        write!(&mut buf, "Pressure: {}hPa", sensor_data.pressure.trunc()).unwrap();
+        write!(&mut buf, "Pressure: {} hPa", sensor_data.pressure.trunc()).unwrap();
         Text::new(
             buf.as_str(),
             Point::new(x_start, y_start + 14 + 14),
@@ -105,7 +105,7 @@ impl Screen {
         .unwrap();
         buf.clear();
         let style = if sensor_data.gas_valid && sensor_data.heat_stable {
-            write!(&mut buf, "Gas: {}ohms", sensor_data.gas_resistance).unwrap();
+            write!(&mut buf, "Gas: {} ohms", sensor_data.gas_resistance).unwrap();
             char_blk_style
         } else {
             write!(&mut buf, "Gas invalid").unwrap();

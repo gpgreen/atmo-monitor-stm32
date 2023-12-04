@@ -14,10 +14,11 @@ use pms_7003::{async_interface::Pms7003SensorAsync, Error};
 /// Control enum
 #[derive(Debug, Clone, Copy, Format)]
 pub enum PmCommand {
-    On,
-    Off,
+    Wake,
+    Sleep,
 }
 
+/// The wake/sleep signal
 pub static PM25_SIGNAL: Signal<CriticalSectionRawMutex, PmCommand> = Signal::new();
 
 /// Data from the sensor
@@ -95,7 +96,7 @@ pub async fn pm25_controller(
     loop {
         // wait for start signal
         match PM25_SIGNAL.wait().await {
-            PmCommand::On => {
+            PmCommand::Wake => {
                 info!("Start collecting pm2.5");
                 if !first {
                     if let Err(e) = dev.wake().await {
@@ -107,7 +108,7 @@ pub async fn pm25_controller(
                 let avg = pm25_get_data(&mut dev).await;
                 sender.send(DisplayInfo::Pms7003Data(avg)).await;
             }
-            PmCommand::Off => {
+            PmCommand::Sleep => {
                 info!("Stop collecting pm2.5");
                 // put the device to sleep, due to race conditions, may
                 // receive a data packet instead of the sleep response

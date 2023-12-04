@@ -207,7 +207,7 @@ async fn display_controller(
 ) {
     loop {
         ena_pin.set_high();
-        PM25_SIGNAL.signal(PmCommand::On);
+        PM25_SIGNAL.signal(PmCommand::Wake);
         BME_SIGNAL.signal(BmeCommand::On);
         let mut current_data = None;
         let mut current_pmdata = None;
@@ -230,7 +230,7 @@ async fn display_controller(
                         }
                         DisplayInfo::Pms7003Data(data) => {
                             current_pmdata = Some(data);
-                            PM25_SIGNAL.signal(PmCommand::Off);
+                            PM25_SIGNAL.signal(PmCommand::Sleep);
                         }
                     }
                 }
