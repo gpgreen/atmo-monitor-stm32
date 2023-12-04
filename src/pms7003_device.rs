@@ -9,8 +9,7 @@ use embassy_stm32::{
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::Sender;
 use embassy_sync::signal::Signal;
-use embassy_time::{Duration, Timer};
-use pms_7003::async_interface::Pms7003SensorAsync;
+use pms_7003::{async_interface::Pms7003SensorAsync, Error};
 
 /// Control enum
 #[derive(Debug, Clone, Copy, Format)]
@@ -72,6 +71,16 @@ impl PmSensorData {
     }
 }
 
+fn print_error(ctx: &str, e: Error) {
+    match e {
+        Error::SendFailed => error!("{}: Send failed", ctx),
+        Error::ReadFailed => error!("{}: Read failed", ctx),
+        Error::ChecksumError => error!("{}: checksum error", ctx),
+        Error::IncorrectResponse => error!("{}: incorrect response", ctx),
+        Error::NoResponse => error!("{}: no response", ctx),
+    }
+}
+
 /// task to read pm2.5 sensor data
 #[embassy_executor::task]
 pub async fn pm25_controller(
@@ -79,19 +88,43 @@ pub async fn pm25_controller(
     _reset_pin: Output<'static, AnyPin>,
     _set_pin: Output<'static, AnyPin>,
     sender: Sender<'static, NoopRawMutex, DisplayInfo, 2>,
-    params: Parameters,
+    _params: Parameters,
 ) {
+    let mut first = true;
     info!("starting pm2.5 loop");
     loop {
         // wait for start signal
         match PM25_SIGNAL.wait().await {
             PmCommand::On => {
                 info!("Start collecting pm2.5");
-                let avg = pm25_get_data(&mut dev, &params).await;
+                if !first {
+                    if let Err(e) = dev.wake().await {
+                        print_error("pm25dev.wake", e);
+                    }
+                } else {
+                    first = false;
+                }
+                let avg = pm25_get_data(&mut dev).await;
                 sender.send(DisplayInfo::Pms7003Data(avg)).await;
             }
             PmCommand::Off => {
                 info!("Stop collecting pm2.5");
+                // put the device to sleep, due to race conditions, may
+                // receive a data packet instead of the sleep response
+                // if this happens, retry the sleep
+                loop {
+                    match dev.sleep().await {
+                        Ok(_) => break,
+                        Err(Error::IncorrectResponse) => {
+                            debug!("sleep incorrect response");
+                            continue;
+                        }
+                        Err(e) => {
+                            print_error("pm25dev.sleep", e);
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -99,7 +132,6 @@ pub async fn pm25_controller(
 
 async fn pm25_get_data(
     dev: &mut Pms7003SensorAsync<usart::BufferedUart<'static, peripherals::USART1>>,
-    params: &Parameters,
 ) -> PmSensorData {
     debug!("pm2.5 get data loop");
     let mut data = [PmSensorData::default(); 5];
@@ -123,10 +155,9 @@ async fn pm25_get_data(
                 if offset == data.len() {
                     break;
                 }
-                Timer::after(Duration::from_millis(params.pm25_data_delay_ms.into())).await;
             }
-            Err(_) => {
-                error!("unable to read pm25 data");
+            Err(e) => {
+                print_error("pm25_get_data", e);
             }
         }
     }
