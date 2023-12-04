@@ -130,7 +130,7 @@ impl Screen {
         } else {
             4
         };
-        x -= 16 * char_width;
+        x -= 18 * char_width;
         write!(&mut buf, "{}", sensor_pmdata.pm2_5_atm).unwrap();
         Text::new(
             buf.as_str(),

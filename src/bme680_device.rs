@@ -57,6 +57,7 @@ where
             .unwrap();
         self.profile_duration =
             Duration::try_from(self.dev.get_profile_dur(&settings.0).unwrap()).unwrap();
+        debug!("bme680 delay: {}ms", self.profile_duration);
         debug!("bme680 initialized");
     }
 
