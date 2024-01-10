@@ -9,14 +9,14 @@ variables.
 
 - [Nucleo-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)
 - [Adafruit BME680 breakout](http://adafru.it/3660)
-- [Adafruit 1.3" TFT LCD](http://adafru.it/4313)
-- [Adafruit EYESPI connector breakout](http://adafru.it/5613)
+- [Adafruit Tri-Color eInk](https://www.adafruit.com/product/4086)
+- [Plantower PM2.5 Sensor PMS7003](https://plantower.com/en/products_33/76.html)
 
-## Dev Board Hardware Pin assignments
+### Dev Board Hardware Pin assignments
 
 | MCU Pin | Logic Signal | Nucleo CN-No |
 |--------:|-------------:|-------------:|
-|   PB8   |  SCL (I2C1)  |   CN5-10     |
+|   PB8   |  SCL (I2C1)  |    CN5-10    |
 |   PB9   |  SDA (I2C1)  |    CN5-9     |
 |   PA5   |  SCK (SPI1)  |    CN5-6     |
 |   PA6   |  MISO (SPI1) |    CN5-5     |
@@ -25,10 +25,29 @@ variables.
 |   PC7   |  D/C         |    CN5-2     |
 |   PA9   |  RST         |    CN5-1     |
 |   PA8   |  BUSY        |    CN9-8     |
-|  PB10   |  SRCS        |    CN9-7     |
-|   PB5   |  SDCS        |    CN9-5     |
+|  PB10   |  SRCS (1)    |    CN9-7     |
+|   PB5   |  SDCS (1)    |    CN9-5     |
 |   PC4   |  TX (USART1) |   CN10-34    |
 |   PC5   |  RX (USART1) |   CN10-6     |
+|         |  ENA         |              |
+|  PC10   |  TX (USART3) |    CN7-1     |
+|  PC11   |  RX (USART3) |    CN7-2     |
+
+### PMS7003 Sensor Cable Wire Connections
+
+| Wire Co | Logic Signal | Pin No |
+|--------:|-------------:|-------:|
+|    Blue |          VCC |      1 |
+|   Black |          VCC |      2 |
+|   White |          GND |      3 |
+|    Grey |          GND |      4 |
+|  Purple |        Reset |      5 |
+|   Green |          N/C |      6 |
+|  Yellow |           RX |      7 |
+|  Orange |          N/C |      8 |
+|     Red |           TX |      9 |
+|   Brown |          Set |     10 |
+
 
 ## Dependencies
 
@@ -71,22 +90,6 @@ If you're running out of memory (`flip-link` bails with an overflow error), you 
 ``` console
 $ DEFMT_RTT_BUFFER_SIZE=64 cargo rb hello
 ```
-
-#### (8. Set `rust-analyzer.linkedProjects`)
-
-If you are using [rust-analyzer] with VS Code for IDE-like features you can add following configuration to your `.vscode/settings.json` to make it work transparently across workspaces. Find the details of this option in the [RA docs].
-
-```json
-{
-    "rust-analyzer.linkedProjects": [
-        "Cargo.toml",
-        "firmware/Cargo.toml",
-    ]
-}
-```
-
-[RA docs]: https://rust-analyzer.github.io/manual.html#configuration
-[rust-analyzer]: https://rust-analyzer.github.io/
 
 ## Running tests
 

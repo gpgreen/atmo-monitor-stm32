@@ -6,7 +6,9 @@ use atmo_monitor_stm32 as _; // global logger + panicking-behavior + memory layo
 use atmo_monitor_stm32::{
     bme680_device::{Bme680Data, BmeDevice},
     parameter::Parameters,
-    screen::{DisplayInfo, Screen},
+    pms7003_device::{self, PmSensorData},
+    screen::Screen,
+    DisplayInfo,
 };
 use defmt::{debug, info, unwrap};
 use embassy_executor::Spawner;
@@ -18,12 +20,14 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 use embassy_time::{Duration, Instant, Timer};
 use il0373::{Builder, Dimensions, Display, GraphicDisplay, Interface, Rotation};
-use static_cell::StaticCell;
-
-use defmt_rtt as _; // global logger
+use pms_7003::async_interface::Pms7003SensorAsync;
+use static_cell::{make_static, StaticCell};
 
 /// Display controller channel
-static CHANNEL: StaticCell<Channel<NoopRawMutex, DisplayInfo, 2>> = StaticCell::new();
+static DISPLAY_CHANNEL: StaticCell<Channel<NoopRawMutex, DisplayInfo, 2>> = StaticCell::new();
+
+/// PMS controller channel
+//static PM25_CHANNEL: StaticCell<Channel<NoopRawMutex, PmSensorData, 2>> = StaticCell::new();
 
 // constants related to display size
 const COLS: u16 = 104;
@@ -34,10 +38,10 @@ const DISPLAY_BUFSIZE: usize = (ROWS * COLS / 8) as usize;
 static mut BLACK_BUFFER: [u8; DISPLAY_BUFSIZE] = [0; DISPLAY_BUFSIZE];
 static mut RED_BUFFER: [u8; DISPLAY_BUFSIZE] = [0; DISPLAY_BUFSIZE];
 
-// connect the I2C1 interrupt
+// connect the interrupts
 bind_interrupts!(struct Irqs {
     I2C1_EV => i2c::InterruptHandler<peripherals::I2C1>;
-    USART1 => usart::InterruptHandler<peripherals::USART1>;
+    USART1 => usart::BufferedInterruptHandler<peripherals::USART1>;
 });
 
 #[embassy_executor::main]
@@ -72,24 +76,15 @@ async fn main(spawner: Spawner) {
     let display_rst = Output::new(p.PA9, Level::High, Speed::Low);
     let display_busy = Input::new(p.PA8, Pull::None);
 
-    // info!("Initializing particulate sensor...");
-    // let usart_config = usart::Config::default();
-    // let mut usart = usart::Uart::new(
-    //     p.USART1,
-    //     p.PC5,
-    //     p.PC4,
-    //     Irqs,
-    //     p.DMA1_CH4,
-    //     NoDma,
-    //     usart_config,
-    // );
-    // for n in 0u32.. {
-    //     let mut s: String<128> = String::new();
-    //     core::write!(&mut s, "Atmo Monitor World {}!\r\n", n).unwrap();
-
-    //     unwrap!(usart.write(s.as_bytes()).await);
-    //     info!("wrote DMA");
-    // }
+    // usart1 rx = PC5, tx = PC4
+    info!("Initializing particulate sensor...");
+    let mut usart_config = usart::Config::default();
+    usart_config.baudrate = 9600;
+    let tx_buf = &mut make_static!([0u8; 32])[..];
+    let rx_buf = &mut make_static!([0u8; 64])[..];
+    let usart =
+        usart::BufferedUart::new(p.USART1, Irqs, p.PC5, p.PC4, tx_buf, rx_buf, usart_config);
+    let pm25dev = Pms7003SensorAsync::new(usart);
 
     info!("Initializing bme680 sensor...");
     // initialize i2c
@@ -139,7 +134,8 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_millis(800)).await;
 
     // data channels
-    let dspctrl_channel = CHANNEL.init(Channel::new());
+    let dspctrl_channel = DISPLAY_CHANNEL.init(Channel::new());
+    //let pm25_channel = PM25_CHANNEL.init(Channel::new());
 
     info!("Starting tasks...");
 
@@ -151,6 +147,11 @@ async fn main(spawner: Spawner) {
     unwrap!(spawner.spawn(display_controller(
         screen,
         dspctrl_channel.receiver(),
+        parameters,
+    )));
+    unwrap!(spawner.spawn(pms7003_device::pm25_controller(
+        pm25dev,
+        dspctrl_channel.sender(),
         parameters,
     )));
 }
@@ -186,6 +187,7 @@ async fn display_controller(
     params: Parameters,
 ) {
     let mut current_data = Bme680Data::default();
+    let mut current_pmdata = PmSensorData::default();
     let mut screen_on = false;
     // the amount of time between screen updates
     let screen_update_duration = Duration::from_secs(params.screen_display_min_refresh_sec.into());
@@ -200,9 +202,13 @@ async fn display_controller(
                     current_data = data;
                     true
                 }
+                DisplayInfo::Pms7003Data(data) => {
+                    current_pmdata = data;
+                    true
+                }
                 DisplayInfo::Show => {
                     // TODO: make sure it doesn't violate the interval
-                    screen.turn_on(&current_data);
+                    screen.turn_on(&current_data, &current_pmdata);
                     last_update = Instant::now();
                     screen_on = true;
                     false
@@ -217,7 +223,7 @@ async fn display_controller(
         }
         if screen_on {
             if last_update + screen_update_duration <= Instant::now() {
-                screen.update(&current_data);
+                screen.update(&current_data, &current_pmdata);
                 last_update = Instant::now();
             }
         }
