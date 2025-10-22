@@ -1,6 +1,6 @@
 #![no_main]
 #![no_std]
-#![feature(type_alias_impl_trait)]
+//#![feature(type_alias_impl_trait)]
 
 use atmo_monitor_stm32 as _; // global logger + panicking-behavior + memory layout
 use atmo_monitor_stm32::{

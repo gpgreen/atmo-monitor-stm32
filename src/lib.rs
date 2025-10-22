@@ -1,16 +1,15 @@
 #![no_main]
 #![no_std]
-#![feature(type_alias_impl_trait)]
 
-use cortex_m_semihosting::debug;
-use defmt::Format;
+mod fmt;
 
-use defmt_rtt as _; // global logger
+#[cfg(not(feature = "defmt"))]
+use panic_halt as _;
+#[cfg(feature = "defmt")]
+use {defmt_rtt as _, panic_probe as _};
 
 // our hal
 use embassy_stm32 as _;
-
-use panic_probe as _;
 
 // library modules
 pub mod bme680_device;
