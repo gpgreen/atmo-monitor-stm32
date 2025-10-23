@@ -74,7 +74,7 @@ impl Screen {
 
         unwrap!(
             Text::new(
-                "Atmo Monitor v0.1.0",
+                "Atmo Monitor v0.2.0",
                 Point::new(x_start + 30, y_start),
                 med_char_rd_style,
             )

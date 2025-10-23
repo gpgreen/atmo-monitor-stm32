@@ -66,22 +66,23 @@ async fn main(spawner: Spawner) {
 
     let mut config = embassy_stm32::Config::default();
     {
+        // change clock to use HSE bypass clock signal and PLL
         use embassy_stm32::rcc::*;
         config.rcc.hse = Some(Hse {
             freq: Hertz(8_000_000),
-            // Oscillator for bluepill, Bypass for nucleos.
+            // Oscillator for bluepill, bypass for nucleo's.
             mode: HseMode::Bypass,
         });
         config.rcc.pll = Some(Pll {
             src: PllSource::HSE,
             prediv: PllPreDiv::DIV1,
-            mul: PllMul::MUL7,
+            mul: PllMul::MUL9, // 72 MHz
         });
         config.rcc.sys = Sysclk::PLL1_P;
-        config.rcc.ahb_pre = AHBPrescaler::DIV1;
-        config.rcc.apb1_pre = APBPrescaler::DIV2;
-        config.rcc.apb2_pre = APBPrescaler::DIV2;
-        //config.rcc.adc_pre = ADCPrescaler::DIV2;
+        config.rcc.ahb_pre = AHBPrescaler::DIV1; // 72 MHz
+        config.rcc.apb1_pre = APBPrescaler::DIV2; // 36 MHz
+        config.rcc.apb2_pre = APBPrescaler::DIV2; // 36 MHz
+        config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
     }
     let p = embassy_stm32::init(config);
 
