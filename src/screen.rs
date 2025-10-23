@@ -1,7 +1,7 @@
+use crate::fmt::{debug, unwrap};
 use crate::{bme680_device::Bme680Data, pms7003_device::PmSensorData};
 use core::fmt::Write;
-use defmt::debug;
-use embassy_stm32::{gpio::*, peripherals, spi::Spi};
+use embassy_stm32::{gpio::*, mode, spi::Spi};
 use embassy_time::Delay;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::*;
@@ -12,13 +12,8 @@ use micromath::F32Ext;
 use profont::{PROFONT_10_POINT, PROFONT_12_POINT, PROFONT_24_POINT};
 
 /// type of the SramDisplayInterface for this app
-type STMInterface<'a> = Interface<
-    Spi<'a, peripherals::SPI1, peripherals::DMA1_CH3, peripherals::DMA1_CH2>,
-    Output<'a, peripherals::PB6>,
-    Input<'a, peripherals::PB5>,
-    Output<'a, peripherals::PC7>,
-    Output<'a, peripherals::PB4>,
->;
+type STMInterface<'a> =
+    Interface<Spi<'a, mode::Async>, Output<'a>, Input<'a>, Output<'a>, Output<'a>>;
 
 /// type of the SramGraphicDisplay for this app
 type STMDisplay<'a> = GraphicDisplay<'a, STMInterface<'a>>;
@@ -77,47 +72,51 @@ impl Screen {
         let x_start: i32 = self.margin.into();
         let y_start: i32 = self.margin as i32 + 10;
 
-        Text::new(
-            "Atmo Monitor v0.1.0",
-            Point::new(x_start + 30, y_start),
-            med_char_rd_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        unwrap!(
+            Text::new(
+                "Atmo Monitor v0.1.0",
+                Point::new(x_start + 30, y_start),
+                med_char_rd_style,
+            )
+            .draw(&mut self.hdwr)
+        );
 
         let mut buf: String<32> = String::new();
-        write!(&mut buf, "Humidity: {}\u{25}", sensor_data.humidity.trunc()).unwrap();
-        Text::new(
-            buf.as_str(),
-            Point::new(x_start, y_start + 14),
-            char_blk_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        write!(&mut buf, "Humidity: {}\u{25}", sensor_data.humidity.trunc()).ok();
+        unwrap!(
+            Text::new(
+                buf.as_str(),
+                Point::new(x_start, y_start + 14),
+                char_blk_style,
+            )
+            .draw(&mut self.hdwr)
+        );
         buf.clear();
-        write!(&mut buf, "Pressure: {} hPa", sensor_data.pressure.trunc()).unwrap();
-        Text::new(
-            buf.as_str(),
-            Point::new(x_start, y_start + 14 + 14),
-            char_blk_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        write!(&mut buf, "Pressure: {} hPa", sensor_data.pressure.trunc()).ok();
+        unwrap!(
+            Text::new(
+                buf.as_str(),
+                Point::new(x_start, y_start + 14 + 14),
+                char_blk_style,
+            )
+            .draw(&mut self.hdwr)
+        );
         buf.clear();
         let style = if sensor_data.gas_valid && sensor_data.heat_stable {
-            write!(&mut buf, "Gas: {} ohms", sensor_data.gas_resistance).unwrap();
+            write!(&mut buf, "Gas: {} ohms", sensor_data.gas_resistance).ok();
             char_blk_style
         } else {
-            write!(&mut buf, "Gas invalid").unwrap();
+            write!(&mut buf, "Gas invalid").ok();
             char_rd_style
         };
-        Text::new(
-            buf.as_str(),
-            Point::new(x_start, y_start + 14 + 14 + 14),
-            style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        unwrap!(
+            Text::new(
+                buf.as_str(),
+                Point::new(x_start, y_start + 14 + 14 + 14),
+                style,
+            )
+            .draw(&mut self.hdwr)
+        );
         buf.clear();
         let mut x = self.display_height - self.margin - 10;
         let y = self.display_width - self.margin - 10;
@@ -131,32 +130,35 @@ impl Screen {
             4
         };
         x -= 18 * char_width;
-        write!(&mut buf, "{}", sensor_pmdata.pm2_5_atm).unwrap();
-        Text::new(
-            buf.as_str(),
-            Point::new(x.into(), y.into()),
-            lg_char_blk_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        write!(&mut buf, "{}", sensor_pmdata.pm2_5_atm).ok();
+        unwrap!(
+            Text::new(
+                buf.as_str(),
+                Point::new(x.into(), y.into()),
+                lg_char_blk_style,
+            )
+            .draw(&mut self.hdwr)
+        );
         buf.clear();
-        write!(&mut buf, "PM2.5").unwrap();
-        Text::new(
-            buf.as_str(),
-            Point::new(x.into(), (y - 28).into()),
-            char_blk_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        write!(&mut buf, "PM2.5").ok();
+        unwrap!(
+            Text::new(
+                buf.as_str(),
+                Point::new(x.into(), (y - 28).into()),
+                char_blk_style,
+            )
+            .draw(&mut self.hdwr)
+        );
         buf.clear();
-        write!(&mut buf, "{}\u{B0}C", sensor_data.temperature.trunc()).unwrap();
-        Text::new(
-            buf.as_str(),
-            Point::new(x_start + 10, y.into()),
-            lg_char_blk_style,
-        )
-        .draw(&mut self.hdwr)
-        .unwrap();
+        write!(&mut buf, "{}\u{B0}C", sensor_data.temperature.trunc()).ok();
+        unwrap!(
+            Text::new(
+                buf.as_str(),
+                Point::new(x_start + 10, y.into()),
+                lg_char_blk_style,
+            )
+            .draw(&mut self.hdwr)
+        );
         self.hdwr.update().ok();
         self.hdwr.deep_sleep().ok();
     }

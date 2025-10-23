@@ -1,6 +1,7 @@
-use defmt::Format;
+// parameters for display screen
 
-#[derive(Format, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Parameters {
     pub screen_columns: u16,
     pub screen_rows: u16,

@@ -18,37 +18,11 @@ pub mod pms7003_device;
 pub mod screen;
 
 /// Enumeration passed on channel to display controller
-#[derive(Debug, Format)]
+#[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum DisplayInfo {
     Bme680Data(bme680_device::Bme680Data),
     Pms7003Data(pms7003_device::PmSensorData),
-}
-
-// same panicking *behavior* as `panic-probe` but doesn't print a panic message
-// this prevents the panic message being printed *twice* when `defmt::panic` is invoked
-#[defmt::panic_handler]
-fn panic() -> ! {
-    cortex_m::asm::udf()
-}
-
-/// Terminates the application and makes a semihosting-capable debug tool exit
-/// with status code 0.
-pub fn exit() -> ! {
-    loop {
-        debug::exit(debug::EXIT_SUCCESS);
-    }
-}
-
-/// Hardfault handler.
-///
-/// Terminates the application and makes a semihosting-capable debug tool exit
-/// with an error. This seems better than the default, which is to spin in a
-/// loop.
-#[cortex_m_rt::exception]
-unsafe fn HardFault(_frame: &cortex_m_rt::ExceptionFrame) -> ! {
-    loop {
-        debug::exit(debug::EXIT_FAILURE);
-    }
 }
 
 // defmt-test 0.3.0 has the limitation that this `#[tests]` attribute can only be used

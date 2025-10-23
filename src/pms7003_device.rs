@@ -1,18 +1,16 @@
 //! Reading the Plantower PMS7003 sensor
 
-use crate::{parameter::Parameters, DisplayInfo};
-use defmt::{debug, error, info, Format};
-use embassy_stm32::{
-    gpio::{AnyPin, Output},
-    peripherals, usart,
-};
+use crate::fmt::{debug, error, info};
+use crate::{DisplayInfo, parameter::Parameters};
+use embassy_stm32::{gpio::Output, usart};
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::Sender;
 use embassy_sync::signal::Signal;
-use pms_7003::{async_interface::Pms7003SensorAsync, Error};
+use pms_7003::{Error, async_interface::Pms7003SensorAsync};
 
 /// Control enum
-#[derive(Debug, Clone, Copy, Format)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PmCommand {
     Wake,
     Sleep,
@@ -22,7 +20,8 @@ pub enum PmCommand {
 pub static PM25_SIGNAL: Signal<CriticalSectionRawMutex, PmCommand> = Signal::new();
 
 /// Data from the sensor
-#[derive(Debug, Default, Clone, Copy, Format)]
+#[derive(Debug, Default, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct PmSensorData {
     pub pm1_0: u16,
     pub pm2_5: u16,
@@ -85,9 +84,9 @@ fn print_error(ctx: &str, e: Error) {
 /// task to read pm2.5 sensor data
 #[embassy_executor::task]
 pub async fn pm25_controller(
-    mut dev: Pms7003SensorAsync<usart::BufferedUart<'static, peripherals::USART1>>,
-    _reset_pin: Output<'static, AnyPin>,
-    _set_pin: Output<'static, AnyPin>,
+    mut dev: Pms7003SensorAsync<usart::BufferedUart<'static>>,
+    _reset_pin: Output<'static>,
+    _set_pin: Output<'static>,
     sender: Sender<'static, NoopRawMutex, DisplayInfo, 2>,
     _params: Parameters,
 ) {
@@ -131,9 +130,7 @@ pub async fn pm25_controller(
     }
 }
 
-async fn pm25_get_data(
-    dev: &mut Pms7003SensorAsync<usart::BufferedUart<'static, peripherals::USART1>>,
-) -> PmSensorData {
+async fn pm25_get_data(dev: &mut Pms7003SensorAsync<usart::BufferedUart<'static>>) -> PmSensorData {
     debug!("pm2.5 get data loop");
     let mut data = [PmSensorData::default(); 5];
     let mut offset = 0;
