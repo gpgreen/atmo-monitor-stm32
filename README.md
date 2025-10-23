@@ -15,7 +15,7 @@ variables.
 ### Dev Board Hardware Pin assignments
 
 #### CN10 Connector
-
+```
 | MCU Pin | MCU Pin | CN10 Even  | CN10 Odd |
 |--------:|--------:|-----------:|---------:|
 |   PC9   |  PC8    |            |          |
@@ -29,9 +29,10 @@ variables.
 |   PB6   |  PB11   | EPD_CS     |          |
 |   PC7   |  GND    | D/C        |          |
 |   PA9   |  PB2    | USART1_TX  |          |
+```
 
 #### CN9 Connector
-
+```
 | MCU Pin | MCU Pin | CN9 Even   | CN9 Odd  |
 |--------:|--------:|-----------:|---------:|
 |   PA8   |  PB1    |            |          |
@@ -42,9 +43,10 @@ variables.
 |  PA10   |  PC4    | USART1_RX  |          |
 |   PA2   |  NC     | Set        |          |
 |   PA3   |  NC     | Reset      |          |
+```
 
 ### PMS7003 Sensor Cable Wire Connections
-
+```
 | Wire Co | Logic Signal | Pin No |
 |--------:|-------------:|-------:|
 |    Blue |          VCC |      1 |
@@ -57,6 +59,7 @@ variables.
 |  Orange |          N/C |      8 |
 |     Red |           TX |      9 |
 |   Brown |          Set |     10 |
+```
 
 ## Removing Nucleo st-link pcb section
 The portion of the dev board containing the st-link functionality can
@@ -71,7 +74,7 @@ CN7-15 [SWCLK] from wires on CN4 on the st-link pcb.
 - CN2 jumpers both OFF
 
 ### SWD connector CN4 on st-link pcb
-
+```
 | Logic Signal | Pin No |
 |-------------:|-------:|
 | VDD Target   |      1 |
@@ -80,6 +83,7 @@ CN7-15 [SWCLK] from wires on CN4 on the st-link pcb.
 | SWDIO        |      4 |
 | NRST         |      5 |
 | SWO          |      6 |
+```
 
 ## Jumper Configuration for Vin power supply for Nucleo
 

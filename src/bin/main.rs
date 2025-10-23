@@ -3,11 +3,11 @@
 
 use atmo_monitor_stm32 as _; // global logger + panicking-behavior + memory layout
 use atmo_monitor_stm32::{
-    DisplayInfo,
     bme680_device::BmeDevice,
     parameter::Parameters,
-    pms7003_device::{self, PM25_SIGNAL, PmCommand},
+    pms7003_device::{self, PmCommand, PM25_SIGNAL},
     screen::Screen,
+    DisplayInfo,
 };
 use embassy_executor::Spawner;
 use embassy_futures::{select, select::Either};
@@ -82,7 +82,7 @@ async fn main(spawner: Spawner) {
         config.rcc.ahb_pre = AHBPrescaler::DIV1; // 72 MHz
         config.rcc.apb1_pre = APBPrescaler::DIV2; // 36 MHz
         config.rcc.apb2_pre = APBPrescaler::DIV2; // 36 MHz
-        config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
+                                                  //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
     }
     let p = embassy_stm32::init(config);
 
@@ -106,8 +106,12 @@ async fn main(spawner: Spawner) {
     let tx_buf = TX_BUFFER.init([0u8; 32]);
     let rx_buf = RX_BUFFER.init([0u8; 64]);
     let usart =
-        usart::BufferedUart::new(p.USART1, p.PA10, p.PA9, tx_buf, rx_buf, Irqs, usart_config)
-            .unwrap();
+        match usart::BufferedUart::new(p.USART1, p.PA10, p.PA9, tx_buf, rx_buf, Irqs, usart_config)
+        {
+            Ok(u) => u,
+            Err(_) => panic!(),
+        };
+
     let pm25dev = Pms7003SensorAsync::new(usart);
     let pm_set = Output::new(p.PA2, Level::High, Speed::Low);
     let pm_reset = Output::new(p.PA3, Level::High, Speed::Low);
@@ -136,14 +140,17 @@ async fn main(spawner: Spawner) {
 
     // Initialize Display
     info!("Initializing Display...");
-    let display_config = Builder::new()
+    let display_config = match Builder::new()
         .dimensions(Dimensions {
             rows: parameters.screen_rows,
             cols: parameters.screen_columns as u8,
         })
         .rotation(Rotation::Rotate90)
         .build()
-        .unwrap();
+    {
+        Ok(config) => config,
+        Err(_) => panic!(),
+    };
     let blk_buffer = BLACK_BUFFER.init([0_u8; DISPLAY_BUFSIZE]);
     let red_buffer = RED_BUFFER.init([0_u8; DISPLAY_BUFSIZE]);
     let screen = Screen::new(
@@ -173,7 +180,7 @@ async fn main(spawner: Spawner) {
             dspctrl_channel.sender(),
             parameters,
         ))
-        .unwrap();
+        .ok();
     spawner
         .spawn(display_controller(
             screen,
@@ -181,7 +188,7 @@ async fn main(spawner: Spawner) {
             dspctrl_channel.receiver(),
             parameters,
         ))
-        .unwrap();
+        .ok();
     spawner
         .spawn(pms7003_device::pm25_controller(
             pm25dev,
@@ -190,7 +197,7 @@ async fn main(spawner: Spawner) {
             dspctrl_channel.sender(),
             parameters,
         ))
-        .unwrap();
+        .ok();
 }
 
 /// task to read sensor data
