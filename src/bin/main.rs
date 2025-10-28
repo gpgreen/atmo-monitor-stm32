@@ -3,11 +3,11 @@
 
 use atmo_monitor_stm32 as _; // global logger + panicking-behavior + memory layout
 use atmo_monitor_stm32::{
+    DisplayInfo,
     bme680_device::BmeDevice,
     parameter::Parameters,
-    pms7003_device::{self, PmCommand, PM25_SIGNAL},
+    pms7003_device::{self, PM25_SIGNAL, PmCommand},
     screen::Screen,
-    DisplayInfo,
 };
 use embassy_executor::Spawner;
 use embassy_futures::{select, select::Either};
@@ -82,7 +82,7 @@ async fn main(spawner: Spawner) {
         config.rcc.ahb_pre = AHBPrescaler::DIV1; // 72 MHz
         config.rcc.apb1_pre = APBPrescaler::DIV2; // 36 MHz
         config.rcc.apb2_pre = APBPrescaler::DIV2; // 36 MHz
-                                                  //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
+        //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
     }
     let p = embassy_stm32::init(config);
 
@@ -90,14 +90,14 @@ async fn main(spawner: Spawner) {
     let parameters = Parameters::new(COLS, ROWS);
     info!("parameters: {:?}", parameters);
 
-    // dc - PC7, rst - PB4, busy - PB5, ena - PB3
+    // dc - PA3, rst - PC15, busy - PC14, ena - PC13
     // sck - PA5, mosi - PA7, miso - PA6
-    // epd_cs - PB6
-    let display_cs = Output::new(p.PB6, Level::High, Speed::Low);
-    let display_dc = Output::new(p.PC7, Level::High, Speed::Low);
-    let display_rst = Output::new(p.PB4, Level::High, Speed::Low);
-    let display_busy = Input::new(p.PB5, Pull::None);
-    let display_ena = Output::new(p.PB3, Level::High, Speed::Low);
+    // epd_cs - PA4, sd_cs - PA1, sram_cs - PA2
+    let display_cs = Output::new(p.PA4, Level::High, Speed::Low);
+    let display_dc = Output::new(p.PA3, Level::High, Speed::Low);
+    let display_rst = Output::new(p.PC15, Level::High, Speed::Low);
+    let display_busy = Input::new(p.PC14, Pull::None);
+    let display_ena = Output::new(p.PC13, Level::High, Speed::Low);
 
     // usart1 rx = PA9, tx = PA10
     info!("Initializing particulate sensor...");
@@ -112,12 +112,14 @@ async fn main(spawner: Spawner) {
             Err(_) => panic!(),
         };
 
+    // set - PB12, reset - PB13
     let pm25dev = Pms7003SensorAsync::new(usart);
-    let pm_set = Output::new(p.PA2, Level::High, Speed::Low);
-    let pm_reset = Output::new(p.PA3, Level::High, Speed::Low);
+    let pm_set = Output::new(p.PB12, Level::High, Speed::Low);
+    let pm_reset = Output::new(p.PB13, Level::High, Speed::Low);
 
     info!("Initializing bme680 sensor...");
     // initialize i2c
+    // scl - PB8, sda - PB9
     let mut i2c_config = i2c::Config::default();
     i2c_config.frequency = Hertz(100_000);
     let i2c = i2c::I2c::new(
