@@ -1,4 +1,4 @@
-// parameters for display screen
+//! parameters for display screen
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

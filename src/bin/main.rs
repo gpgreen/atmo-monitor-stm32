@@ -3,11 +3,11 @@
 
 use atmo_monitor_stm32 as _; // global logger + panicking-behavior + memory layout
 use atmo_monitor_stm32::{
-    DisplayInfo,
     bme680_device::BmeDevice,
     parameter::Parameters,
-    pms7003_device::{self, PM25_SIGNAL, PmCommand},
+    pms7003_device::{self, PmCommand, PM25_SIGNAL},
     screen::Screen,
+    DisplayInfo,
 };
 use embassy_executor::Spawner;
 use embassy_futures::{select, select::Either};
@@ -82,13 +82,16 @@ async fn main(spawner: Spawner) {
         config.rcc.ahb_pre = AHBPrescaler::DIV1; // 72 MHz
         config.rcc.apb1_pre = APBPrescaler::DIV2; // 36 MHz
         config.rcc.apb2_pre = APBPrescaler::DIV2; // 36 MHz
-        //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
+                                                  //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
     }
     let p = embassy_stm32::init(config);
 
     // create the parameters
     let parameters = Parameters::new(COLS, ROWS);
     info!("parameters: {:?}", parameters);
+
+    // power pins
+    let power_lbo = Input::new(p.PA0, Pull::None);
 
     // dc - PA3, rst - PC15, busy - PC14, ena - PC13
     // sck - PA5, mosi - PA7, miso - PA6
@@ -100,7 +103,7 @@ async fn main(spawner: Spawner) {
     let display_ena = Output::new(p.PC13, Level::High, Speed::Low);
 
     // usart1 rx = PA9, tx = PA10
-    info!("Initializing particulate sensor...");
+    info!("Initializing particulate sensor");
     let mut usart_config = usart::Config::default();
     usart_config.baudrate = 9600;
     let tx_buf = TX_BUFFER.init([0u8; 32]);
@@ -117,7 +120,7 @@ async fn main(spawner: Spawner) {
     let pm_set = Output::new(p.PB12, Level::High, Speed::Low);
     let pm_reset = Output::new(p.PB13, Level::High, Speed::Low);
 
-    info!("Initializing bme680 sensor...");
+    info!("Initializing bme680 sensor");
     // initialize i2c
     // scl - PB8, sda - PB9
     let mut i2c_config = i2c::Config::default();
@@ -141,7 +144,7 @@ async fn main(spawner: Spawner) {
     );
 
     // Initialize Display
-    info!("Initializing Display...");
+    info!("Initializing Display");
     let display_config = match Builder::new()
         .dimensions(Dimensions {
             rows: parameters.screen_rows,
