@@ -1,3 +1,9 @@
+//! atmo-monitor-stm32
+//! Library for atmospheric sensing device
+//! Device includes e-ink screen to show results
+//! Sensors are BME680 for temp/press and
+//! Plantower PMS 7003 for particulate measurement
+
 #![no_main]
 #![no_std]
 
