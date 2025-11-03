@@ -90,14 +90,16 @@ async fn main(spawner: Spawner) {
     let parameters = Parameters::new(COLS, ROWS);
     info!("parameters: {:?}", parameters);
 
-    // dc - PA3, rst - PC15, busy - PC14, ena - PC13
+    let power_lbo = Input::new(p.PA0, Pull::None);
+
+    // dc - PA3, rst - PD1, busy - PC14, ena - PD2
     // sck - PA5, mosi - PA7, miso - PA6
     // epd_cs - PA4, sd_cs - PA1, sram_cs - PA2
     let display_cs = Output::new(p.PA4, Level::High, Speed::Low);
     let display_dc = Output::new(p.PA3, Level::High, Speed::Low);
-    let display_rst = Output::new(p.PC15, Level::High, Speed::Low);
+    let display_rst = Output::new(p.PD1, Level::High, Speed::Low);
     let display_busy = Input::new(p.PC14, Pull::None);
-    let display_ena = Output::new(p.PC13, Level::High, Speed::Low);
+    let display_ena = Output::new(p.PD0, Level::High, Speed::Low);
 
     // usart1 rx = PA9, tx = PA10
     info!("Initializing particulate sensor...");
@@ -187,6 +189,7 @@ async fn main(spawner: Spawner) {
         .spawn(display_controller(
             screen,
             display_ena,
+            power_lbo,
             dspctrl_channel.receiver(),
             parameters,
         ))
@@ -238,6 +241,7 @@ async fn bme680_controller(
 async fn display_controller(
     mut screen: Screen,
     mut ena_pin: Output<'static>,
+    lbo_pin: Input<'static>,
     receiver: Receiver<'static, NoopRawMutex, DisplayInfo, 2>,
     params: Parameters,
 ) {
@@ -276,7 +280,7 @@ async fn display_controller(
             }
             if let (Some(d), Some(pd)) = (current_data, current_pmdata) {
                 screen.power_on();
-                screen.update(&d, &pd);
+                screen.update(&d, &pd, lbo_pin.is_low());
                 screen.power_off();
                 break;
             }

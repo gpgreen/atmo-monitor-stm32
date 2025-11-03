@@ -54,7 +54,12 @@ impl Screen {
     }
 
     /// Update data on the display
-    pub fn update(&mut self, sensor_data: &Bme680Data, sensor_pmdata: &PmSensorData) {
+    pub fn update(
+        &mut self,
+        sensor_data: &Bme680Data,
+        sensor_pmdata: &PmSensorData,
+        low_battery: bool,
+    ) {
         debug!("display update");
 
         let mut delay = Delay;
@@ -81,6 +86,18 @@ impl Screen {
             .draw(&mut self.hdwr)
         );
 
+        // if the battery is low, write it on screen
+        if low_battery {
+            let x = self.display_height / 2;
+            unwrap!(
+                Text::new(
+                    "Low Battery!",
+                    Point::new(x.into(), y_start + 14),
+                    char_rd_style,
+                )
+                .draw(&mut self.hdwr)
+            );
+        }
         let mut buf: String<32> = String::new();
         write!(&mut buf, "Humidity: {}\u{25}", sensor_data.humidity.trunc()).ok();
         unwrap!(
