@@ -8,6 +8,7 @@ use core::fmt;
 use embassy_time::{Delay, Duration};
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c::{Read, Write};
+use log::error;
 
 /// Data sensed by the BME680 device
 #[derive(Debug, Default, Clone, Copy)]
@@ -27,29 +28,51 @@ pub struct BmeDevice<I2C> {
     profile_duration: Duration,
 }
 
+/// Uninitialized BME680 device
+pub struct BmeDeviceUninit<I2C> {
+    pub i2c: I2C,
+}
+
+impl<I2C> BmeDeviceUninit<I2C>
+where
+    I2C: Read + Write,
+    <I2C as Read>::Error: fmt::Debug,
+    <I2C as Write>::Error: fmt::Debug,
+{
+    /// Create a new BmeDeviceUninit
+    /// due to the bme680 module, there is some i2c traffic on the bus
+    /// when a new device is constructed, so we don't create it until
+    /// the `BmeDevice::init` method
+    pub fn new(i2c: I2C) -> Self {
+        Self { i2c }
+    }
+}
+
+/// Produce a `error` log message from a `bme680::Error`
+pub fn bme680_error_msg<R, W>(e: &bme680::Error<R, W>) {
+    match e {
+        bme680::Error::I2CWrite(_w) => error!("write error"),
+        bme680::Error::I2CRead(_r) => error!("read error"),
+        bme680::Error::DeviceNotFound => error!("device not found"),
+        bme680::Error::InvalidLength => error!("invalid length"),
+        bme680::Error::DefinePwrMode => error!("define power mode"),
+        bme680::Error::NoNewData => error!("no new data"),
+        bme680::Error::BoundaryCheckFailure(str) => error!("boundary check failure {}", str),
+    }
+}
+
 impl<I2C> BmeDevice<I2C>
 where
     I2C: Read + Write,
     <I2C as Read>::Error: fmt::Debug,
     <I2C as Write>::Error: fmt::Debug,
 {
-    /// Create a new BmeDevice, do not initialize it yet
-    /// due to the bme680 module, there is some i2c traffic on the bus
-    /// during this method
-    pub fn new(
-        i2c: I2C,
-    ) -> Result<BmeDevice<I2C>, bme680::Error<<I2C as Read>::Error, <I2C as Write>::Error>> {
-        let mut delayer = Delay;
-        Ok(BmeDevice {
-            dev: Bme680::init(i2c, &mut delayer, I2CAddress::Secondary)?,
-            profile_duration: Duration::from_secs(0),
-        })
-    }
-
     /// Initialize the BmeDevice so it can read data
     pub fn init(
-        &mut self,
-    ) -> Result<(), bme680::Error<<I2C as Read>::Error, <I2C as Write>::Error>> {
+        dev: BmeDeviceUninit<I2C>,
+    ) -> Result<BmeDevice<I2C>, bme680::Error<<I2C as Read>::Error, <I2C as Write>::Error>> {
+        let mut delayer = Delay;
+        let mut bme_dev = Bme680::init(dev.i2c, &mut delayer, I2CAddress::Secondary)?;
         let settings = SettingsBuilder::new()
             .with_humidity_oversampling(OversamplingSetting::OS2x)
             .with_pressure_oversampling(OversamplingSetting::OS4x)
@@ -58,13 +81,14 @@ where
             .with_gas_measurement(Duration::from_millis(1500).into(), 320, 25)
             .with_run_gas(true)
             .build();
-        let mut delayer = Delay;
-        self.dev.set_sensor_settings(&mut delayer, settings)?;
-        if let Ok(d) = Duration::try_from(self.dev.get_profile_dur(&settings.0)?) {
-            self.profile_duration = d;
-            debug!("bme680 delay: {}ms", self.profile_duration);
+        bme_dev.set_sensor_settings(&mut delayer, settings)?;
+        if let Ok(d) = Duration::try_from(bme_dev.get_profile_dur(&settings.0)?) {
+            debug!("bme680 delay: {}ms", d);
             debug!("bme680 initialized");
-            Ok(())
+            Ok(BmeDevice {
+                dev: bme_dev,
+                profile_duration: d,
+            })
         } else {
             panic!("Unable to create duration from value stored in sensor");
         }

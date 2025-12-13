@@ -1,49 +1,15 @@
 # `atmo-monitor-32`
 
 Device to monitor atmosphere. Measures temperature, pressure,
-humidity, VOC, and pm2.5. Hosted on a [Nucleo-F303RE] development
-board. Device has a small eInk display to show these
-variables.
+humidity, VOC, and pm2.5. Hosted on a homebuilt pcb. Device has a
+small eInk display to show these variables.
 
 ## Hardware
 
-- [Nucleo-F303RE](https://www.st.com/en/evaluation-tools/nucleo-f303re.html)
+- [Kicad Project](https://github.com/gpgreen/atmo-monitor)
 - [Adafruit BME680 breakout](http://adafru.it/3660)
 - [Adafruit Tri-Color eInk](https://www.adafruit.com/product/4086)
 - [Plantower PM2.5 Sensor PMS7003](https://plantower.com/en/products_33/76.html)
-
-### Dev Board Hardware Pin assignments
-
-#### CN10 Connector
-```
-| MCU Pin | MCU Pin | CN10 Even  | CN10 Odd |
-|--------:|--------:|-----------:|---------:|
-|   PC9   |  PC8    |            |          |
-|   PB8   |  PC6    | I2C1_SCL   |          |
-|   PB9   |  PC5    | I2C1_SDA   |          |
-|  AVDD   |  U5V    |            |          |
-|   GND   |  NC     |            |          |
-|   PA5   |  PA12   | SPI1_SCK   |          |
-|   PA6   |  PA11   | SPI1_MISO  |          |
-|   PA7   |  PB12   | SPI1_MOSI  |          |
-|   PB6   |  PB11   | EPD_CS     |          |
-|   PC7   |  GND    | D/C        |          |
-|   PA9   |  PB2    | USART1_TX  |          |
-```
-
-#### CN9 Connector
-```
-| MCU Pin | MCU Pin | CN9 Even   | CN9 Odd  |
-|--------:|--------:|-----------:|---------:|
-|   PA8   |  PB1    |            |          |
-|  PB10   | PB15    |            |          |
-|   PB4   | PB14    | RST        |          |
-|   PB5   | PB13    | BUSY       |          |
-|   PB3   | AGND    | ENA        |          |
-|  PA10   |  PC4    | USART1_RX  |          |
-|   PA2   |  NC     | Set        |          |
-|   PA3   |  NC     | Reset      |          |
-```
 
 ### PMS7003 Sensor Cable Wire Connections
 ```
@@ -61,45 +27,37 @@ variables.
 |   Brown |          Set |     10 |
 ```
 
-## Removing Nucleo st-link pcb section
-The portion of the dev board containing the st-link functionality can
-be removed from the Nucleo. The remaining board must then be powered
-through CN7 using Vin.
+## Using JLink JTAG debugger to connect to board
 
-The board can still be programmed by connecting to CN7-7 [SWDIO] and
-CN7-15 [SWCLK] from wires on CN4 on the st-link pcb.
-
-### Jumper setting to use st-link externally, ie by using the jumper wires
-
-- CN2 jumpers both OFF
-
-### SWD connector CN4 on st-link pcb
+### 20 Pin connector for JTAG
 ```
-| Logic Signal | Pin No |
-|-------------:|-------:|
-| VDD Target   |      1 |
-| SWCLK        |      2 |
-| GND          |      3 |
-| SWDIO        |      4 |
-| NRST         |      5 |
-| SWO          |      6 |
+                -------
+    VTref      1|*   *|2 NC
+    nTRST      3|*   *|4 GND
+    TDI        5|*   *|6 GND
+    TMS        7|*   *|8 GND
+    TCK        9|*   *|10 GND
+    RTCK      11|*   *|12 GND
+    TDO       13|*   *|14 GND
+    RESET     15|*   *|16 GND*
+    DBGRQ     17|*   *|18 GND*
+    5V Supply 19|*   *|20 GND*
+                -------
 ```
+From a 20pin JTAG connector, run wires to the following test pads to connect a debugger:
 
-## Jumper Configuration for Vin power supply for Nucleo
+VTRef 1  <-> 3V3
+SWDIO 7  <-> SWD
+SWCLK 9  <-> SWC
+RESET 15 <-> RST
+GND   4  <-> GND
 
-- JP5 pins 2 & 3 connected (Towards E5V label)
-- JP1 OFF
+### Running SEGGER JLink
 
-The following power sequence procedure must be respected:
-1. Connect the jumper between pin 2 and pin 3 of JP5.
-2. Check that JP1 is removed.
-3. Connect the external power source to VIN or E5V.
-4. Power on the external power supply 7 V< VIN < 12 V to VIN, or 5 V for E5V.
-5. Check that LD3 is turned ON.
-6. Connect the PC to USB connector CN1.
-
-If this order is not respected, the board may be supplied by VBUS first then by VIN or E5V,
-and the following risks may be encountered:
+Run the JLink GDB server via the following:
+```
+JLinkGDBServer -if SWD -device STM32F103CB
+```
 
 ## Dependencies
 

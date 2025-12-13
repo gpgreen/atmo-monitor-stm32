@@ -4,7 +4,7 @@
 use atmo_monitor_stm32 as _; // global logger + panicking-behavior + memory layout
 use atmo_monitor_stm32::{
     DisplayInfo,
-    bme680_device::BmeDevice,
+    bme680_device::{BmeDevice, BmeDeviceUninit, bme680_error_msg},
     parameter::Parameters,
     pms7003_device::{self, PM25_SIGNAL, PmCommand},
     screen::Screen,
@@ -66,23 +66,24 @@ async fn main(spawner: Spawner) {
 
     let mut config = embassy_stm32::Config::default();
     {
-        // change clock to use HSE bypass clock signal and PLL
+        // change clock to use PLL
         use embassy_stm32::rcc::*;
-        config.rcc.hse = Some(Hse {
-            freq: Hertz(8_000_000),
-            // Oscillator for bluepill, bypass for nucleo's.
-            mode: HseMode::Bypass,
-        });
+        //     config.rcc.hse = Some(Hse {
+        //         freq: Hertz(8_000_000),
+        //         // Oscillator for bluepill, bypass for nucleo's.
+        //         mode: HseMode::Bypass,
+        //     });
+        // prediv must be 2 since using the HSI
         config.rcc.pll = Some(Pll {
-            src: PllSource::HSE,
-            prediv: PllPreDiv::DIV1,
+            src: PllSource::HSI,
+            prediv: PllPreDiv::DIV2,
             mul: PllMul::MUL9, // 72 MHz
         });
         config.rcc.sys = Sysclk::PLL1_P;
-        config.rcc.ahb_pre = AHBPrescaler::DIV1; // 72 MHz
-        config.rcc.apb1_pre = APBPrescaler::DIV2; // 36 MHz
-        config.rcc.apb2_pre = APBPrescaler::DIV2; // 36 MHz
-        //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
+        //     config.rcc.ahb_pre = AHBPrescaler::DIV1; // 72 MHz
+        //     config.rcc.apb1_pre = APBPrescaler::DIV2; // 36 MHz
+        //     config.rcc.apb2_pre = APBPrescaler::DIV2; // 36 MHz
+        //     //config.rcc.adc = ADCPrescaler::DIV2; // 18 MHz
     }
     let p = embassy_stm32::init(config);
 
@@ -124,16 +125,8 @@ async fn main(spawner: Spawner) {
     // scl - PB8, sda - PB9
     let mut i2c_config = i2c::Config::default();
     i2c_config.frequency = Hertz(100_000);
-    let i2c = i2c::I2c::new(
-        p.I2C1, p.PB8, p.PB9, Irqs, p.DMA1_CH6, p.DMA1_CH7, i2c_config,
-    );
-    let bme_dev = match BmeDevice::new(i2c) {
-        Ok(dev) => dev,
-        Err(e) => {
-            error!("bme680 init error: {:?}", e);
-            panic!()
-        }
-    };
+    let i2c = i2c::I2c::new_blocking(p.I2C1, p.PB8, p.PB9, i2c_config);
+    let bme_dev = BmeDeviceUninit::new(i2c);
 
     // spi
     let mut spi_config = spi::Config::default();
@@ -208,13 +201,13 @@ async fn main(spawner: Spawner) {
 /// task to read sensor data
 #[embassy_executor::task]
 async fn bme680_controller(
-    mut bme_dev: BmeDevice<i2c::I2c<'static, mode::Async, i2c::mode::Master>>,
+    bme_dev: BmeDeviceUninit<i2c::I2c<'static, mode::Blocking, i2c::mode::Master>>,
     sender: Sender<'static, NoopRawMutex, DisplayInfo, 2>,
     params: Parameters,
 ) {
-    bme_dev.init().ok();
+    let mut dev = BmeDevice::init(bme_dev).unwrap();
     // throw away the first reading
-    bme_dev.read().ok();
+    dev.read().ok();
     Timer::after(Duration::from_millis(
         params.bme680_first_data_delay_ms.into(),
     ))
@@ -222,7 +215,7 @@ async fn bme680_controller(
     loop {
         match BME_SIGNAL.wait().await {
             BmeCommand::On => {
-                if let Ok(data) = bme_dev.read() {
+                if let Ok(data) = dev.read() {
                     sender.send(DisplayInfo::Bme680Data(data)).await;
                 }
             }
